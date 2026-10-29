@@ -1,3 +1,4 @@
+
 name: Autogen
 
 on:
@@ -6,38 +7,58 @@ on:
       payload:
         required: true
         description: 'Direct URL to autogen payload zip'
+        type: string
 
 jobs:
   autogen:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
+      - name: Install download dependency
+        run: |
+          python -m pip install gdown
 
       - name: Fetch payload
         run: |
           mkdir -p ./autogen/input/
-          curl -L# "${{ github.event.inputs.payload }}" > ./autogen/input/payload.zip
-       
+          gdown --fuzzy "${{ github.event.inputs.payload }}" -O ./autogen/input/payload.zip
+          test -s ./autogen/input/payload.zip
+
+      - name: Verify payload
+        run: |
+          unzip -t ./autogen/input/payload.zip
+
       - name: Unzip payload
         run: |
           unzip ./autogen/input/payload.zip -d ./autogen/input/
           rm ./autogen/input/payload.zip
-      
+
       - name: Install dependencies
         run: |
-          sudo apt update -y
-          sudo apt install -y xmlstarlet
-      
+          sudo apt-get update -y
+          sudo apt-get install -y xmlstarlet
+
       - name: Run autogen
-        run: ./autogen/generate
-        
+        run: |
+          chmod +x ./autogen/generate
+          ./autogen/generate
+
+      - name: Verify output
+        run: |
+          test -d ./autogen/output/
+          test "$(find ./autogen/output/ -type f | wc -l)" -gt 0
+
       - name: Compress outputs
-        run: zip -vr9 ./autogen/output/output.zip ./autogen/output/*
-          
+        run: |
+          cd ./autogen/output/
+          zip -r9 ../output.zip .
+
       - name: Get date
         id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%dT%H-%M-%S')"
+        run: |
+          echo "date=$(date +'%Y-%m-%dT%H-%M-%S')" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         id: create_release
@@ -55,6 +76,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./autogen/output/output.zip
+          asset_path: ./autogen/output.zip
           asset_name: output.zip
           asset_content_type: application/zip
+
