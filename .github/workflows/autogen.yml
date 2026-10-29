@@ -9,6 +9,9 @@ on:
         description: 'Direct URL to autogen payload zip'
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   autogen:
     runs-on: ubuntu-latest
@@ -21,9 +24,11 @@ jobs:
           python -m pip install gdown
 
       - name: Fetch payload
+        env:
+          PAYLOAD_URL: ${{ inputs.payload }}
         run: |
           mkdir -p ./autogen/input/
-          gdown --fuzzy "${{ github.event.inputs.payload }}" -O ./autogen/input/payload.zip
+          gdown "$PAYLOAD_URL" -O ./autogen/input/payload.zip
           test -s ./autogen/input/payload.zip
 
       - name: Verify payload
@@ -79,4 +84,3 @@ jobs:
           asset_path: ./autogen/output.zip
           asset_name: output.zip
           asset_content_type: application/zip
-
